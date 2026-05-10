@@ -1,0 +1,83 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function RegisterPage() {
+  const router = useRouter();
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const res = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error || "Something went wrong");
+      setLoading(false);
+      return;
+    }
+
+    router.push("/auth/login");
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-6">
+      <form
+        onSubmit={handleRegister}
+        className="w-full max-w-md bg-white/5 border border-white/10 p-8 rounded-2xl shadow-xl"
+      >
+        <h2 className="text-2xl font-bold mb-6">Create Account</h2>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/20 text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+
+        <input
+          placeholder="Full Name"
+          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 mb-3"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+
+        <input
+          placeholder="Email"
+          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 mb-3"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          placeholder="Password"
+          type="password"
+          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 mb-3"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button
+          disabled={loading}
+          className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 transition font-semibold"
+        >
+          {loading ? "Creating..." : "Register"}
+        </button>
+      </form>
+    </div>
+  );
+}
