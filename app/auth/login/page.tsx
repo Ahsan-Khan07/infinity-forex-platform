@@ -174,6 +174,16 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
+        {/* ✅ ADDED: Forgot Password Link (ONLY CHANGE) */}
+        <div className="flex justify-end mt-1">
+          <a
+            href="/auth/forgot-password"
+            className="text-sm text-cyan-400 hover:text-cyan-300"
+          >
+            Forgot password?
+          </a>
+        </div>
+
         <button
           disabled={disabled}
           className={`w-full py-3 rounded-xl font-semibold transition ${
