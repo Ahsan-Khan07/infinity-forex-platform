@@ -25,27 +25,59 @@ export default function LoginPage() {
     setError("");
     setMessage("");
 
-    // ❌ CLIENT VALIDATION
-    if (!email || !password) {
-      setError("Email and password are required");
+    try {
+      if (!email || !password) {
+        setError("Email and password are required");
+        setLoading(false);
+        return;
+      }
+
+      const res = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+
+      if (!res) {
+        setError("Server error. Please try again");
+        setLoading(false);
+        return;
+      }
+
+      if (res.error) {
+        switch (res.error) {
+          case "USER_NOT_FOUND":
+            setError("This email is not registered. Please sign up first.");
+            break;
+
+          case "NOT_VERIFIED":
+            setError("Please verify your email before logging in.");
+            break;
+
+          case "WRONG_PASSWORD":
+            setError("Incorrect password. Please try again.");
+            break;
+
+          case "INVALID_INPUT":
+            setError("Invalid email or password format.");
+            break;
+
+          default:
+            setError("Invalid email, password, or account not verified.");
+        }
+
+        setLoading(false);
+        return;
+      }
+
+      // ✅ FIX: reliable production redirect (PM2 / VPS safe)
+      window.location.href = "/dashboard";
+
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const res = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    });
-
-    if (res?.error) {
-      setError(res.error);
-      setLoading(false);
-      return;
-    }
-
-    router.push("/dashboard");
-    router.refresh();
   }
 
   async function handleGoogleLogin() {
@@ -53,44 +85,47 @@ export default function LoginPage() {
     setError("");
     setMessage("");
 
-    await signIn("google", {
-      callbackUrl: "/dashboard",
-    });
-
-    setGoogleLoading(false);
+    try {
+      await signIn("google", {
+        callbackUrl: "/dashboard",
+      });
+    } catch {
+      setError("Google login failed");
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   async function handleResend() {
     setResendLoading(true);
-    setMessage("");
     setError("");
+    setMessage("");
 
-    const res = await fetch("/api/auth/resend-verification", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email }),
-    });
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error || "Something went wrong");
-    } else {
-      setMessage(data.message);
+      if (!res.ok) {
+        setError(data.error || "Failed to resend email");
+      } else {
+        setMessage(data.message || "Verification email sent");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setResendLoading(false);
     }
-
-    setResendLoading(false);
   }
 
   const disabled = !email || !password || loading;
 
   return (
-    <AuthCard
-      title="Welcome Back"
-      description="Login to access your trading dashboard"
-    >
+    <AuthCard title="Welcome Back" description="Login to access your trading dashboard">
       <form onSubmit={handleLogin} className="space-y-4">
 
         {error && (
@@ -105,7 +140,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* ✅ GOOGLE LOGIN BUTTON */}
         <button
           type="button"
           onClick={handleGoogleLogin}
@@ -119,7 +153,6 @@ export default function LoginPage() {
           {googleLoading ? "Connecting..." : "Continue with Google"}
         </button>
 
-        {/* Divider */}
         <div className="flex items-center gap-3 my-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs text-white/40">OR</span>
@@ -128,7 +161,7 @@ export default function LoginPage() {
 
         <input
           placeholder="Email"
-          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white placeholder:text-white/60"
+          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -136,7 +169,7 @@ export default function LoginPage() {
         <input
           placeholder="Password"
           type="password"
-          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white placeholder:text-white/60"
+          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -152,17 +185,15 @@ export default function LoginPage() {
           {loading ? "Logging in..." : "Login"}
         </button>
 
-        {/* 🔁 RESEND BUTTON */}
         <button
           type="button"
           onClick={handleResend}
           disabled={!email || resendLoading}
           className="w-full text-sm text-cyan-400 hover:text-cyan-300 mt-2"
         >
-          {resendLoading
-            ? "Sending..."
-            : "Didn’t receive verification email? Resend"}
+          {resendLoading ? "Sending..." : "Didn’t receive verification email? Resend"}
         </button>
+
       </form>
     </AuthCard>
   );

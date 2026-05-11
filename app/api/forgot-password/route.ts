@@ -6,8 +6,13 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   const { email } = await req.json();
 
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return NextResponse.json({ success: true });
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    return NextResponse.json({ success: true });
+  }
 
   const token = generateToken();
 

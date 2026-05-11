@@ -2,8 +2,9 @@ import { prisma } from "./prisma";
 import { verifyPassword } from "./password";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import type { AuthOptions } from "next-auth";
 
-export const authOptions = {
+export const authOptions: AuthOptions = {
   session: { strategy: "jwt" },
 
   providers: [
@@ -22,40 +23,41 @@ export const authOptions = {
       },
 
       async authorize(credentials) {
-        // ✅ 1. HARD VALIDATION (STOP BLANK LOGIN)
+        // ❌ HARD SAFE VALIDATION
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email and password are required");
+          throw new Error("INVALID_INPUT");
         }
 
         const email = credentials.email.trim().toLowerCase();
         const password = credentials.password;
 
         if (email.length < 5 || password.length < 6) {
-          throw new Error("Invalid credentials format");
+          throw new Error("INVALID_INPUT");
         }
 
-        // ✅ 2. FIND USER
+        // 🔍 FIND USER
         const user = await prisma.user.findUnique({
           where: { email },
         });
 
+        // 🟥 EMAIL NOT FOUND
         if (!user) {
-          throw new Error("User not found");
+          throw new Error("USER_NOT_FOUND");
         }
 
-        // ❌ EMAIL NOT VERIFIED BLOCK
+        // 🟨 NOT VERIFIED
         if (!user.isVerified) {
-          throw new Error("Please verify your email first");
+          throw new Error("NOT_VERIFIED");
         }
 
-        // ✅ 3. PASSWORD CHECK
+        // 🔐 PASSWORD CHECK
         const valid = await verifyPassword(password, user.password);
 
+        // 🟧 WRONG PASSWORD
         if (!valid) {
-          throw new Error("Invalid password");
+          throw new Error("WRONG_PASSWORD");
         }
 
-        // ✅ 4. RETURN SAFE USER
         return {
           id: user.id,
           email: user.email,
@@ -68,7 +70,6 @@ export const authOptions = {
 
   callbacks: {
     async signIn({ user, account }: any) {
-      // ✅ GOOGLE LOGIN HANDLING
       if (account?.provider === "google") {
         const cleanEmail = user.email.trim().toLowerCase();
 
@@ -76,7 +77,6 @@ export const authOptions = {
           where: { email: cleanEmail },
         });
 
-        // ✅ If user does not exist, create new verified user
         if (!existingUser) {
           await prisma.user.create({
             data: {
@@ -89,7 +89,6 @@ export const authOptions = {
           });
         }
 
-        // ✅ If user exists but not verified, auto verify
         if (existingUser && !existingUser.isVerified) {
           await prisma.user.update({
             where: { email: cleanEmail },
@@ -106,19 +105,14 @@ export const authOptions = {
     },
 
     async jwt({ token, user }: any) {
-      if (user) {
-        token.role = user.role;
-      }
+      if (user) token.role = user.role;
 
-      // ✅ Ensure role exists for Google login users
       if (!token.role && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
         });
 
-        if (dbUser) {
-          token.role = dbUser.role;
-        }
+        if (dbUser) token.role = dbUser.role;
       }
 
       return token;
