@@ -1,23 +1,26 @@
-// @ts-nocheck
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+/**
+ * Route protection middleware
+ */
 export async function middleware(req: NextRequest) {
   const token = await getToken({ req });
-
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith("/dashboard")) {
-    if (!token) {
-      return NextResponse.redirect(new URL("/auth/login", req.url));
-    }
+  const isDashboard = pathname.startsWith("/dashboard");
+  const isAdmin = pathname.startsWith("/admin");
+
+  if (isDashboard && !token) {
+    return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 
-  if (pathname.startsWith("/admin")) {
-    if (!token || (token.role !== "ADMIN" && token.role !== "SUPER_ADMIN")) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
+  if (
+    isAdmin &&
+    (!token || (token.role !== "ADMIN" && token.role !== "SUPER_ADMIN"))
+  ) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();

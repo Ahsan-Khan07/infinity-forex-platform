@@ -3,12 +3,28 @@ import { hashPassword } from "@/lib/password";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { sendVerificationEmail } from "@/lib/mailer";
+import { rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+
+    // ✅ RATE LIMIT (REGISTER PROTECTION)
+    const limitCheck = await rateLimit(`REGISTER_${ip}`, 5, 60); // 5 requests / 60 sec
+
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait 1 minute and try again." },
+        { status: 429 }
+      );
+    }
+
     const { name, email, password } = await req.json();
 
-    // 🔴 VALIDATION (IMPORTANT)
+    // 🔴 BASIC VALIDATION
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "All fields are required" },
@@ -17,10 +33,30 @@ export async function POST(req: Request) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
 
-    if (password.length < 6) {
+    // 🔐 SERVER EMAIL VALIDATION
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
+        { error: "Invalid email format" },
+        { status: 400 }
+      );
+    }
+
+    // 🔐 PASSWORD POLICY (FINTECH GRADE)
+    const strongPassword =
+      password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /[0-9]/.test(password);
+
+    if (!strongPassword) {
+      return NextResponse.json(
+        {
+          error:
+            "Weak password. Use 8+ chars with uppercase, lowercase & number",
+        },
         { status: 400 }
       );
     }
@@ -32,46 +68,42 @@ export async function POST(req: Request) {
 
     if (existing) {
       return NextResponse.json(
-        { error: "User already exists" },
+        {
+          error:
+            "Account already exists. Please login or use forgot password.",
+        },
         { status: 400 }
       );
     }
 
-    // 🔐 VERIFY TOKEN (NEW)
+    // 🔐 TOKEN GENERATION
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
     // 🔴 CREATE USER
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
-        name: name.trim(),
+        name: cleanName,
         email: cleanEmail,
         password: await hashPassword(password),
 
-        // ⚠️ EMAIL VERIFICATION FLOW
         isVerified: false,
         verifyToken,
-        verifyTokenExpiry: new Date(Date.now() + 1000 * 60 * 60), // 1 hour
+        verifyTokenExpiry: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
 
-    // 📧 SEND EMAIL (RESEND FIXED)
-    await sendVerificationEmail(cleanEmail, verifyToken, name.trim());
+    // 📧 EMAIL VERIFICATION
+    await sendVerificationEmail(cleanEmail, verifyToken, cleanName);
 
     return NextResponse.json({
       success: true,
       message: "Verification email sent",
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
     });
-
-  } catch (error: any) {
+  } catch (error) {
     console.error("REGISTER ERROR:", error);
 
     return NextResponse.json(
-      { error: "Server error. Please try again." },
+      { error: "Server error. Please try again later." },
       { status: 500 }
     );
   }

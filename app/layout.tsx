@@ -1,6 +1,7 @@
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Providers from "./providers";
+import SessionWatcher from "@/components/SessionWatcher";
 
 export default function RootLayout({
   children,
@@ -11,6 +12,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Providers>
+          <SessionWatcher />
           <Navbar />
           {children}
         </Providers>

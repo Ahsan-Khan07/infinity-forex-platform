@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import AuthCard from "@/components/AuthCard";
 import { useRouter } from "next/navigation";
@@ -10,6 +10,8 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fingerprint, setFingerprint] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -18,8 +20,27 @@ export default function LoginPage() {
   const [resendLoading, setResendLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  // ✅ SIMPLE FINGERPRINT GENERATION (NO LIBRARY)
+  useEffect(() => {
+    const fp =
+      navigator.userAgent +
+      "|" +
+      navigator.language +
+      "|" +
+      screen.width +
+      "x" +
+      screen.height +
+      "|" +
+      Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    setFingerprint(btoa(fp));
+  }, []);
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+
+    // ❌ prevent double click / spam login
+    if (loading) return;
 
     setLoading(true);
     setError("");
@@ -32,10 +53,15 @@ export default function LoginPage() {
         return;
       }
 
+      // ⚠️ ensure fingerprint exists before sending request
+      const fp = fingerprint || "unknown-device";
+
       const res = await signIn("credentials", {
         redirect: false,
         email,
         password,
+        fingerprint: fp,
+        twoFactorCode,
       });
 
       if (!res) {
@@ -58,19 +84,29 @@ export default function LoginPage() {
             setError("Incorrect password. Please try again.");
             break;
 
-          case "INVALID_INPUT":
-            setError("Invalid email or password format.");
+          case "INVALID_2FA":
+            setError("Invalid 2FA code. Please try again.");
+            break;
+
+          case "ACCOUNT_LOCKED":
+            setError("Account temporarily locked due to failed attempts.");
+            break;
+
+          case "NEW_DEVICE_DETECTED":
+            setError(
+              "New device detected. Please verify login from your email."
+            );
             break;
 
           default:
-            setError("Invalid email, password, or account not verified.");
+            setError("Login failed. Please check your credentials.");
         }
 
         setLoading(false);
         return;
       }
 
-      // ✅ FIX: reliable production redirect (PM2 / VPS safe)
+      // ✅ SUCCESS
       window.location.href = "/dashboard";
 
     } catch (err: any) {
@@ -81,6 +117,8 @@ export default function LoginPage() {
   }
 
   async function handleGoogleLogin() {
+    if (googleLoading) return;
+
     setGoogleLoading(true);
     setError("");
     setMessage("");
@@ -97,6 +135,8 @@ export default function LoginPage() {
   }
 
   async function handleResend() {
+    if (!email || resendLoading) return;
+
     setResendLoading(true);
     setError("");
     setMessage("");
@@ -125,7 +165,10 @@ export default function LoginPage() {
   const disabled = !email || !password || loading;
 
   return (
-    <AuthCard title="Welcome Back" description="Login to access your trading dashboard">
+    <AuthCard
+      title="Welcome Back"
+      description="Login to access your trading dashboard"
+    >
       <form onSubmit={handleLogin} className="space-y-4">
 
         {error && (
@@ -174,7 +217,14 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        {/* ✅ ADDED: Forgot Password Link (ONLY CHANGE) */}
+        {/* 🔐 2FA INPUT (STEP 4.5) */}
+        <input
+          placeholder="2FA Code (if enabled)"
+          className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white"
+          value={twoFactorCode}
+          onChange={(e) => setTwoFactorCode(e.target.value)}
+        />
+
         <div className="flex justify-end mt-1">
           <a
             href="/auth/forgot-password"
