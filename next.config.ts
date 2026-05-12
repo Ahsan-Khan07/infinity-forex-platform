@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  allowedDevOrigins: ["infinityfinancial.cloudns.be", "localhost"],
 };
 
 export default nextConfig;

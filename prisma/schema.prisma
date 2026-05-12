@@ -7,37 +7,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/**
+ * USER ROLES
+ */
 enum Role {
   STUDENT
   ADMIN
 }
 
+/**
+ * LOGIN STATUS ENUM (SAFE TYPE CONTROL)
+ */
+enum LoginStatus {
+  SUCCESS
+  FAILED
+  LOCKED
+  TWO_FA_REQUIRED
+  NEW_DEVICE
+}
+
+/**
+ * =========================
+ * USER MODEL (CORE IDENTITY)
+ * =========================
+ */
 model User {
   id String @id @default(auto()) @map("_id") @db.ObjectId
+
   name      String
   email     String   @unique
   password  String
   role      Role     @default(STUDENT)
+
   avatarUrl String?
 
+  // -------------------------
+  // SECURITY SYSTEM
+  // -------------------------
   failedLoginAttempts Int      @default(0)
   lockUntil           DateTime?
   lastFailedLogin     DateTime?
-  lastLoginAt DateTime?
+  lastLoginAt         DateTime?
 
   twoFactorEnabled Boolean @default(false)
   twoFactorSecret   String?
   backupCodes       String[]
-  
-  isVerified Boolean  @default(false)
-  resetToken String?
-  verifyToken String?
-  verifyTokenExpiry DateTime?
+
+  isVerified Boolean @default(false)
+
+  resetToken         String?
+  verifyToken        String?
+  verifyTokenExpiry  DateTime?
+
+  // 🔐 SESSION SECURITY CORE
   sessionVersion Int @default(0)
 
   createdAt DateTime @default(now())
 }
 
+/**
+ * =========================
+ * RATE LIMIT SYSTEM
+ * =========================
+ */
 model RateLimit {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   key       String   @unique
@@ -47,43 +79,124 @@ model RateLimit {
   updatedAt DateTime @updatedAt
 }
 
+/**
+ * =========================
+ * TRUSTED DEVICE SYSTEM
+ * =========================
+ */
 model TrustedDevice {
-  id          String   @id @map("_id") @default(auto()) @db.ObjectId
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+
   userId      String   @db.ObjectId
   fingerprint String
+
   userAgent   String
   ip          String
+
+  // DEVICE TRUST LIFECYCLE
+  isTrusted   Boolean  @default(false)
+
+  trustScore  Int      @default(0)
+
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
-  isTrusted   Boolean  @default(false)
 
   @@index([userId])
   @@unique([userId, fingerprint])
 }
 
+/**
+ * =========================
+ * LOGIN AUDIT LOG (SECURITY CORE)
+ * =========================
+ */
 model LoginLog {
-  id          String   @id @map("_id") @default(auto()) @db.ObjectId
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+
   email       String
   userId      String?  @db.ObjectId
+
   ip          String
   userAgent   String
   fingerprint String?
-  status      String
+
+  status      LoginStatus
   reason      String?
+
+  metadata    String? // JSON string for extensibility
+
   createdAt   DateTime @default(now())
 
   @@index([email])
   @@index([ip])
 }
 
+/**
+ * =========================
+ * DEVICE VERIFICATION FLOW
+ * =========================
+ */
 model PendingDeviceLogin {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId       String?  @db.ObjectId
+  email        String
+
+  token        String   @unique
+
+  ip           String?
+  userAgent    String?
+  fingerprint  String?
+
+  expiresAt    DateTime
+
+  createdAt    DateTime @default(now())
+
+  @@index([email])
+}
+
+/**
+ * =========================
+ * AUDIT LOG (ENTERPRISE OBSERVABILITY)
+ * =========================
+ */
+model AuditLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId      String?  @db.ObjectId
+
+  action      String
+
+  ip          String?
+  userAgent   String?
+
+  metadata    String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+}
+
+/**
+ * =========================
+ * SESSION TRACKING (OPTIONAL FUTURE USE)
+ * =========================
+ */
+model Session {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String?  @db.ObjectId
-  email     String
+
+  userId    String   @db.ObjectId
+
   token     String   @unique
-  ip        String?
-  userAgent String?
-  fingerprint String?
-  expiresAt DateTime
+
+  ip        String
+  userAgent String
+
   createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  revoked   Boolean  @default(false)
+
+  @@index([userId])
 }
