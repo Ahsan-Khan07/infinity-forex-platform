@@ -1,12 +1,6 @@
-/**
- * NEXTAUTH API ROUTE
- * -------------------
- * Entry point for authentication system
- */
-
 import NextAuth from "next-auth";
-import { authOptions } from "@/lib/auth/auth.config";
+import { authConfig } from "@/modules/auth/core/auth.config";
 
-const handler = NextAuth(authOptions);
+const handler = NextAuth(authConfig);
 
 export { handler as GET, handler as POST };

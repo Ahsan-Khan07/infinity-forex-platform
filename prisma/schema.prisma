@@ -7,17 +7,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/**
- * USER ROLES
- */
+//// =========================
+//// USER ROLES
+//// =========================
 enum Role {
   STUDENT
   ADMIN
+  USER
+  MENTOR
 }
 
-/**
- * LOGIN STATUS ENUM (SAFE TYPE CONTROL)
- */
+//// =========================
+//// USER STATUS (SECURITY CONTROL)
+//// =========================
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+//// =========================
+//// LOGIN STATUS ENUM
+//// =========================
 enum LoginStatus {
   SUCCESS
   FAILED
@@ -26,50 +37,47 @@ enum LoginStatus {
   NEW_DEVICE
 }
 
-/**
- * =========================
- * USER MODEL (CORE IDENTITY)
- * =========================
- */
+//// =========================
+//// USER MODEL (CORE IDENTITY)
+//// =========================
 model User {
   id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(STUDENT)
+  name     String
+  email    String @unique
+  password String
+
+  role   Role       @default(STUDENT)
+  status UserStatus @default(ACTIVE)
 
   avatarUrl String?
 
-  // -------------------------
-  // SECURITY SYSTEM
-  // -------------------------
-  failedLoginAttempts Int      @default(0)
+  //// SECURITY SYSTEM
+  failedLoginAttempts Int       @default(0)
   lockUntil           DateTime?
   lastFailedLogin     DateTime?
   lastLoginAt         DateTime?
 
-  twoFactorEnabled Boolean @default(false)
-  twoFactorSecret   String?
-  backupCodes       String[]
+  //// 2FA SYSTEM
+  twoFactorEnabled Boolean  @default(false)
+  twoFactorSecret  String?
+  backupCodes      String[]
 
   isVerified Boolean @default(false)
 
-  resetToken         String?
-  verifyToken        String?
-  verifyTokenExpiry  DateTime?
+  resetToken        String?
+  verifyToken       String?
+  verifyTokenExpiry DateTime?
 
-  // 🔐 SESSION SECURITY CORE
+  //// SESSION SECURITY CORE
   sessionVersion Int @default(0)
 
   createdAt DateTime @default(now())
 }
 
-/**
- * =========================
- * RATE LIMIT SYSTEM
- * =========================
- */
+//// =========================
+//// RATE LIMIT SYSTEM
+//// =========================
 model RateLimit {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   key       String   @unique
@@ -79,116 +87,104 @@ model RateLimit {
   updatedAt DateTime @updatedAt
 }
 
-/**
- * =========================
- * TRUSTED DEVICE SYSTEM
- * =========================
- */
+//// =========================
+//// TRUSTED DEVICE SYSTEM
+//// =========================
 model TrustedDevice {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  userId      String   @db.ObjectId
+  userId      String @db.ObjectId
   fingerprint String
 
-  userAgent   String
-  ip          String
+  userAgent String
+  ip        String
 
-  // DEVICE TRUST LIFECYCLE
-  isTrusted   Boolean  @default(false)
-
-  trustScore  Int      @default(0)
+  isTrusted Boolean @default(false)
+  trustScore Int @default(0)
 
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
 
-  @@index([userId])
   @@unique([userId, fingerprint])
+  @@index([userId])
 }
 
-/**
- * =========================
- * LOGIN AUDIT LOG (SECURITY CORE)
- * =========================
- */
+//// =========================
+//// LOGIN AUDIT LOG
+//// =========================
 model LoginLog {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  email       String
-  userId      String?  @db.ObjectId
+  email  String
+  userId String? @db.ObjectId
 
   ip          String
   userAgent   String
   fingerprint String?
 
-  status      LoginStatus
-  reason      String?
+  status LoginStatus
+  reason String?
 
-  metadata    String? // JSON string for extensibility
+  metadata String?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([email])
   @@index([ip])
 }
 
-/**
- * =========================
- * DEVICE VERIFICATION FLOW
- * =========================
- */
+//// =========================
+//// DEVICE VERIFICATION FLOW
+//// =========================
 model PendingDeviceLogin {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  userId       String?  @db.ObjectId
-  email        String
+  userId String? @db.ObjectId
+  email  String
 
-  token        String   @unique
+  token String @unique
 
-  ip           String?
-  userAgent    String?
-  fingerprint  String?
+  ip          String?
+  userAgent   String?
+  fingerprint String?
 
-  expiresAt    DateTime
+  expiresAt DateTime
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([email])
 }
 
-/**
- * =========================
- * AUDIT LOG (ENTERPRISE OBSERVABILITY)
- * =========================
- */
+//// =========================
+//// AUDIT LOG (ENTERPRISE)
+//// =========================
 model AuditLog {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  userId      String?  @db.ObjectId
+  userId String? @db.ObjectId
 
-  action      String
+  action String
 
-  ip          String?
-  userAgent   String?
+  ip        String?
+  userAgent String?
 
-  metadata    String?
+  metadata String?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([action])
 }
 
-/**
- * =========================
- * SESSION TRACKING (OPTIONAL FUTURE USE)
- * =========================
- */
+//// =========================
+//// SESSION TRACKING
+//// =========================
 model Session {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  userId    String   @db.ObjectId
+  userId String @db.ObjectId
 
-  token     String   @unique
+  token String @unique
 
   ip        String
   userAgent String
@@ -196,7 +192,7 @@ model Session {
   createdAt DateTime @default(now())
   expiresAt DateTime
 
-  revoked   Boolean  @default(false)
+  revoked Boolean @default(false)
 
   @@index([userId])
 }

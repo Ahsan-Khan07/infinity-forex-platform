@@ -1,19 +1,25 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth.config";
+import { authConfig } from "@/modules/auth/core/auth.config";
 import { redirect } from "next/navigation";
+import DashboardCard from "@/components/dashboard/DashboardCard";
+
+/**
+ * FINTECH DASHBOARD HOME
+ */
 
 export default async function Dashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authConfig);
 
-  // 🔥 FIX: protect route
   if (!session) {
     redirect("/auth/login");
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
-      <div className="mb-10">
-        <h1 className="text-4xl font-bold">
+    <div className="space-y-8">
+
+      {/* HEADER */}
+      <div>
+        <h1 className="text-3xl font-bold">
           Welcome back, {session.user?.name}
         </h1>
 
@@ -22,22 +28,32 @@ export default async function Dashboard() {
         </p>
       </div>
 
+      {/* KPI GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
-          <h2 className="text-lg font-semibold">Balance</h2>
-          <p className="text-2xl mt-2">$10,000</p>
-        </div>
 
-        <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
-          <h2 className="text-lg font-semibold">Profit</h2>
-          <p className="text-2xl mt-2 text-green-400">+12.4%</p>
-        </div>
+        <DashboardCard
+          title="Balance"
+          value="$10,000"
+          subtitle="Live trading wallet"
+          color="blue"
+        />
 
-        <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
-          <h2 className="text-lg font-semibold">Trades</h2>
-          <p className="text-2xl mt-2">24 Active</p>
-        </div>
+        <DashboardCard
+          title="Profit"
+          value="+12.4%"
+          subtitle="Today performance"
+          color="green"
+        />
+
+        <DashboardCard
+          title="Active Trades"
+          value="24"
+          subtitle="Open positions"
+          color="purple"
+        />
+
       </div>
+
     </div>
   );
 }

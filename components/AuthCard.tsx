@@ -2,62 +2,56 @@
 
 import { ReactNode } from "react";
 
+/**
+ * ==========================================================
+ * INFINITY FINANCE — AUTH CARD (CENTER FIX + V5 UI)
+ * ==========================================================
+ */
+
 export default function AuthCard({
   title,
-  description,
+  subtitle,
   children,
 }: {
   title: string;
-  description?: string;
+  subtitle?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 bg-black relative overflow-hidden">
+    <div className="min-h-screen w-full flex items-center justify-center px-4 bg-[#05060a]">
 
-      {/* ================= BACKGROUND GLOW SYSTEM ================= */}
-      <div className="absolute inset-0 -z-10">
-        {/* Main top glow */}
-        <div className="absolute top-[-220px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-600/20 blur-[140px] rounded-full animate-pulse" />
+      {/* BACKGROUND GLOW */}
+      <div className="absolute w-[500px] h-[500px] bg-cyan-500/10 blur-[140px] rounded-full top-[-200px] left-[-200px]" />
+      <div className="absolute w-[500px] h-[500px] bg-blue-500/10 blur-[160px] rounded-full bottom-[-200px] right-[-200px]" />
 
-        {/* Bottom right glow */}
-        <div className="absolute bottom-[-200px] right-[-100px] w-[500px] h-[500px] bg-cyan-500/20 blur-[140px] rounded-full animate-pulse" />
+      {/* CARD WRAPPER */}
+      <div className="relative w-full max-w-md">
 
-        {/* Subtle grid overlay for SaaS feel */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] bg-[size:40px_40px] opacity-20" />
-      </div>
+        {/* Glow Border */}
+        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 blur-2xl rounded-3xl opacity-60" />
 
-      {/* ================= AUTH CARD ================= */}
-      <div
-        className="
-          relative w-full max-w-md
-          rounded-2xl
-          border border-white/10
-          bg-white/5
-          backdrop-blur-2xl
-          shadow-[0_0_60px_rgba(0,0,0,0.6)]
-          p-8
-          transition-all
-          duration-300
-          hover:border-white/20
-        "
-      >
-        {/* Title */}
-        <h2 className="text-3xl font-bold text-white tracking-tight">
-          {title}
-        </h2>
+        {/* MAIN CARD */}
+        <div className="relative bg-black/40 border border-white/10 backdrop-blur-2xl rounded-2xl p-8 shadow-[0_0_80px_rgba(0,255,200,0.08)]">
 
-        {/* Description */}
-        {description && (
-          <p className="text-white/60 text-sm mt-2 leading-relaxed">
-            {description}
-          </p>
-        )}
+          {/* HEADER */}
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-semibold text-white">
+              {title}
+            </h1>
 
-        {/* Divider */}
-        <div className="my-6 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            {subtitle && (
+              <p className="text-sm text-gray-400 mt-2 leading-relaxed">
+                {subtitle}
+              </p>
+            )}
+          </div>
 
-        {/* Content */}
-        <div>{children}</div>
+          {/* CONTENT */}
+          <div className="space-y-4">
+            {children}
+          </div>
+
+        </div>
       </div>
     </div>
   );

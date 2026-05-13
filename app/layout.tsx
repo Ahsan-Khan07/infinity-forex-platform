@@ -1,7 +1,9 @@
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Providers from "./providers";
-import SessionWatcher from "@/components/SessionWatcher";
+
+import SessionProvider from "@/components/providers/SessionProvider";
+import Navbar from "@/components/landing/Navbar";
+import AuthModal from "@/components/auth/AuthModal";
+import AIOrb from "@/components/cinematic/AIOrb";
 
 export default function RootLayout({
   children,
@@ -10,12 +12,25 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <Providers>
-          <SessionWatcher />
+      <body className="relative bg-black text-white">
+
+        {/* 1. AUTH SESSION LAYER (GLOBAL STATE) */}
+        <SessionProvider>
+
+          {/* 2. GLOBAL NAVBAR */}
           <Navbar />
-          {children}
-        </Providers>
+
+          {/* 3. PAGE CONTENT */}
+          <main className="pt-20">{children}</main>
+
+          {/* 4. GLOBAL AUTH MODAL SYSTEM */}
+          <AuthModal />
+
+          {/* 5. FLOATING AI ORB (UI OVERLAY SYSTEM) */}
+          <AIOrb />
+
+        </SessionProvider>
+
       </body>
     </html>
   );
