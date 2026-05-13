@@ -21,7 +21,7 @@ export async function GET() {
       email: true,
       role: true,
       avatarUrl: true,
-      twoFactorEnabled: true,
+      mfaEnabled: true,
       createdAt: true,
       lastLoginAt: true,
       sessionVersion: true,

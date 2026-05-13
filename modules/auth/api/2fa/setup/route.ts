@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
 import QRCode from "qrcode";
+import { encrypt } from "@/lib/crypto";
 
 export async function POST(req: Request) {
   const { email } = await req.json();
@@ -14,12 +15,14 @@ export async function POST(req: Request) {
 
   const secret = speakeasy.generateSecret({
     name: `Infinity Finance (${email})`,
+    issuer: "Infinity Finance",
   });
 
   await prisma.user.update({
     where: { email },
     data: {
-      twoFactorSecret: secret.base32,
+      mfaSecret: encrypt(secret.base32),
+      mfaSetupRequired: true,
     },
   });
 

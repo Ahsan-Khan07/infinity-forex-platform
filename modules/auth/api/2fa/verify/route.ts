@@ -1,20 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
+import { decrypt } from "@/lib/crypto";
+import { encrypt } from "@/lib/crypto";
 
 export async function POST(req: Request) {
   const { email, token } = await req.json();
 
   const user = await prisma.user.findUnique({ where: { email } });
 
-  if (!user || !user.twoFactorSecret) {
+  if (!user || !user.mfaSecret) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  const decryptedSecret = decrypt(user.mfaSecret);
+
   const verified = speakeasy.totp.verify({
-    secret: user.twoFactorSecret,
+    secret: decryptedSecret,
     encoding: "base32",
     token,
+    window: 2,
   });
 
   if (!verified) {
@@ -22,9 +27,10 @@ export async function POST(req: Request) {
   }
 
   await prisma.user.update({
-    where: { email },
+    where: { id: user.id },
     data: {
-      twoFactorEnabled: true,
+      mfaEnabled: true,
+      mfaSetupRequired: false,
     },
   });
 

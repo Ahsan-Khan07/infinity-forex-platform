@@ -2,9 +2,14 @@
 
 import { motion } from "framer-motion";
 import { useAuthModal } from "@/store/auth/auth-modal.store";
+import { useSession } from "next-auth/react";
+import UserAvatarMenu from "@/components/user/UserAvatarMenu";
 
 export default function Navbar() {
   const { open } = useAuthModal();
+  const { data: session, status } = useSession();
+
+  const isLoggedIn = status === "authenticated" && session?.user;
 
   return (
     <motion.header
@@ -14,9 +19,8 @@ export default function Navbar() {
       className="fixed top-0 w-full z-50 backdrop-blur-xl bg-black/40 border-b border-white/10"
     >
       <div className="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-
         {/* BRAND */}
-        <div className="font-semibold text-lg tracking-wide">
+        <div className="font-semibold text-lg tracking-wide select-none">
           Infinity <span className="text-cyan-400">Finance</span>
         </div>
 
@@ -30,27 +34,28 @@ export default function Navbar() {
           </a>
         </nav>
 
-        {/* AUTH ACTIONS */}
-        <div className="flex gap-3">
+        {/* RIGHT SIDE */}
+        <div className="flex items-center gap-3">
+          {/* LOGGED IN */}
+          {isLoggedIn ? (
+            <UserAvatarMenu />
+          ) : (
+            <>
+              {/* LOGIN → MODAL */}
+              <button
+                onClick={() => open("login")}
+                className="px-4 py-2 border border-white/10 rounded-lg hover:bg-white/5 transition"
+              >
+                Login
+              </button>
 
-          {/* LOGIN → MODAL */}
-          <button
-            onClick={() => open("login")}
-            className="px-4 py-2 border border-white/10 rounded-lg hover:bg-white/5 transition"
-          >
-            Login
-          </button>
-
-          {/* REGISTER → MODAL */}
-          <button
-            onClick={() => open("register")}
-            className="btn-3d"
-          >
-            Get Started
-          </button>
-
+              {/* REGISTER → MODAL */}
+              <button onClick={() => open("register")} className="btn-3d">
+                Get Started
+              </button>
+            </>
+          )}
         </div>
-
       </div>
     </motion.header>
   );
