@@ -1,0 +1,98 @@
+2026-05-13T14:07:21: ▲ Next.js 16.2.6
+2026-05-13T14:07:21: ▲ Next.js 16.2.6
+2026-05-13T14:07:21: - Local:         http://localhost:3000
+2026-05-13T14:07:21: - Network:       http://10.0.20.53:3000
+2026-05-13T14:07:21: ✓ Ready in 1504ms
+2026-05-13T14:07:21: - Local:         http://localhost:3000
+2026-05-13T14:07:21: - Network:       http://10.0.20.53:3000
+2026-05-13T14:07:21: ✓ Ready in 1498ms
+2026-05-13T14:13:38: prisma:error 
+Invalid `prisma.user.update()` invocation:
+
+
+Transaction failed due to a write conflict or a deadlock. Please retry your transaction
+2026-05-13T14:13:39: prisma:error 
+Invalid `prisma.user.update()` invocation:
+
+
+Transaction failed due to a write conflict or a deadlock. Please retry your transaction
+2026-05-14T18:55:05: ▲ Next.js 16.2.6
+2026-05-14T18:55:05: ▲ Next.js 16.2.6
+2026-05-14T18:55:05: - Local:         http://localhost:3000
+2026-05-14T18:55:05: - Network:       http://10.0.20.53:3000
+2026-05-14T18:55:05: ✓ Ready in 1404ms
+2026-05-14T18:55:05: - Local:         http://localhost:3000
+2026-05-14T18:55:05: - Network:       http://10.0.20.53:3000
+2026-05-14T18:55:05: ✓ Ready in 1596ms
+2026-05-14T19:16:12: ▲ Next.js 16.2.6
+2026-05-14T19:16:12: - Local:         http://localhost:3000
+2026-05-14T19:16:12: - Network:       http://10.0.20.53:3000
+2026-05-14T19:16:12: ✓ Ready in 2.3s
+2026-05-14T19:16:14: ▲ Next.js 16.2.6
+2026-05-14T19:16:14: - Local:         http://localhost:3000
+2026-05-14T19:16:14: - Network:       http://10.0.20.53:3000
+2026-05-14T19:16:14: ✓ Ready in 1488ms
+2026-05-14T23:04:20: ▲ Next.js 16.2.6
+2026-05-14T23:04:20: ▲ Next.js 16.2.6
+2026-05-14T23:04:20: - Local:         http://localhost:3000
+2026-05-14T23:04:20: - Network:       http://10.0.20.53:3000
+2026-05-14T23:04:20: ✓ Ready in 1494ms
+2026-05-14T23:04:20: - Local:         http://localhost:3000
+2026-05-14T23:04:20: - Network:       http://10.0.20.53:3000
+2026-05-14T23:04:20: ✓ Ready in 1397ms
+2026-05-14T23:35:02: ▲ Next.js 16.2.6
+2026-05-14T23:35:02: ▲ Next.js 16.2.6
+2026-05-14T23:35:02: - Local:         http://localhost:3000
+2026-05-14T23:35:02: - Network:       http://10.0.20.53:3000
+2026-05-14T23:35:02: ✓ Ready in 1514ms
+2026-05-14T23:35:02: - Local:         http://localhost:3000
+2026-05-14T23:35:02: - Network:       http://10.0.20.53:3000
+2026-05-14T23:35:02: ✓ Ready in 1897ms
+2026-05-14T23:57:30: ▲ Next.js 16.2.6
+2026-05-14T23:57:30: ▲ Next.js 16.2.6
+2026-05-14T23:57:30: - Local:         http://localhost:3000
+2026-05-14T23:57:30: - Network:       http://10.0.20.53:3000
+2026-05-14T23:57:30: ✓ Ready in 1605ms
+2026-05-14T23:57:30: - Local:         http://localhost:3000
+2026-05-14T23:57:30: - Network:       http://10.0.20.53:3000
+2026-05-14T23:57:30: ✓ Ready in 1603ms
+2026-05-15T00:21:23: ▲ Next.js 16.2.6
+2026-05-15T00:21:23: ▲ Next.js 16.2.6
+2026-05-15T00:21:23: - Local:         http://localhost:3000
+2026-05-15T00:21:23: - Network:       http://10.0.20.53:3000
+2026-05-15T00:21:23: ✓ Ready in 1677ms
+2026-05-15T00:21:23: - Local:         http://localhost:3000
+2026-05-15T00:21:23: - Network:       http://10.0.20.53:3000
+2026-05-15T00:21:23: ✓ Ready in 1687ms
+2026-05-15T00:48:01: ▲ Next.js 16.2.6
+2026-05-15T00:48:01: ▲ Next.js 16.2.6
+2026-05-15T00:48:01: - Local:         http://localhost:3000
+2026-05-15T00:48:01: - Network:       http://10.0.20.53:3000
+2026-05-15T00:48:01: ✓ Ready in 1889ms
+2026-05-15T00:48:01: - Local:         http://localhost:3000
+2026-05-15T00:48:01: - Network:       http://10.0.20.53:3000
+2026-05-15T00:48:01: ✓ Ready in 1801ms
+2026-05-15T01:46:48: ▲ Next.js 16.2.6
+2026-05-15T01:46:49: ▲ Next.js 16.2.6
+2026-05-15T01:46:49: - Local:         http://localhost:3000
+2026-05-15T01:46:49: - Network:       http://10.0.20.53:3000
+2026-05-15T01:46:49: ✓ Ready in 1701ms
+2026-05-15T01:46:49: - Local:         http://localhost:3000
+2026-05-15T01:46:49: - Network:       http://10.0.20.53:3000
+2026-05-15T01:46:49: ✓ Ready in 1815ms
+2026-05-15T02:02:00: ▲ Next.js 16.2.6
+2026-05-15T02:02:00: ▲ Next.js 16.2.6
+2026-05-15T02:02:00: - Local:         http://localhost:3000
+2026-05-15T02:02:00: - Network:       http://10.0.20.53:3000
+2026-05-15T02:02:00: ✓ Ready in 2.0s
+2026-05-15T02:02:00: - Local:         http://localhost:3000
+2026-05-15T02:02:00: - Network:       http://10.0.20.53:3000
+2026-05-15T02:02:00: ✓ Ready in 1913ms
+2026-05-15T04:40:50: ▲ Next.js 16.2.6
+2026-05-15T04:40:50: ▲ Next.js 16.2.6
+2026-05-15T04:40:50: - Local:         http://localhost:3000
+2026-05-15T04:40:50: - Network:       http://10.0.20.53:3000
+2026-05-15T04:40:50: ✓ Ready in 1608ms
+2026-05-15T04:40:50: - Local:         http://localhost:3000
+2026-05-15T04:40:50: - Network:       http://10.0.20.53:3000
+2026-05-15T04:40:50: ✓ Ready in 1662ms

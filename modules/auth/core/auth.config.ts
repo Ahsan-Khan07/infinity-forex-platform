@@ -1,13 +1,18 @@
-import { loginService } from "@/modules/auth/core/auth.service";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import speakeasy from "speakeasy";
+
+import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
+import { prismaRetry } from "@/lib/prisma-retry";
+import {
+  getIpFromHeaders,
+  getUserAgentFromHeaders,
+} from "@/modules/auth/core/auth.utils";
 
 /**
- * FINTECH-GRADE AUTH CONFIG (HARDENED)
+ * FINTECH-GRADE AUTH CONFIG (PRODUCTION HARDENED)
  */
 export const authConfig: NextAuthOptions = {
   session: {
@@ -30,7 +35,7 @@ export const authConfig: NextAuthOptions = {
         twoFactorCode: { label: "2FA Code", type: "text" },
       },
 
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         const email = credentials?.email?.trim().toLowerCase();
         const password = credentials?.password;
         const fingerprint = credentials?.fingerprint || "unknown-device";
@@ -40,43 +45,133 @@ export const authConfig: NextAuthOptions = {
           throw new Error("INVALID_INPUT");
         }
 
-        /**
-         * 1. FETCH USER (ONLY ONCE)
-         */
+        // NextAuth headers are not always native Headers object
+        const safeHeaders =
+          req?.headers instanceof Headers
+            ? req.headers
+            : new Headers((req?.headers as Record<string, string>) || {});
+
+        const ip = getIpFromHeaders(safeHeaders);
+        const userAgent = getUserAgentFromHeaders(safeHeaders);
+
         const user = await prisma.user.findUnique({
           where: { email },
         });
 
-        if (!user) throw new Error("USER_NOT_FOUND");
+        if (!user) {
+          await prisma.loginLog.create({
+            data: {
+              email,
+              ip,
+              userAgent,
+              fingerprint,
+              status: "FAILED",
+              reason: "USER_NOT_FOUND",
+            },
+          });
 
-        /**
-         * 2. ACCOUNT STATUS CHECK
-         */
+          throw new Error("USER_NOT_FOUND");
+        }
+
         if (user.status !== "ACTIVE") {
+          await prisma.loginLog.create({
+            data: {
+              email,
+              userId: user.id,
+              ip,
+              userAgent,
+              fingerprint,
+              status: "LOCKED",
+              reason: "ACCOUNT_LOCKED",
+            },
+          });
+
           throw new Error("ACCOUNT_LOCKED");
         }
 
-        /**
-         * 3. EMAIL VERIFICATION
-         */
+        if (user.lockUntil && user.lockUntil > new Date()) {
+          await prisma.loginLog.create({
+            data: {
+              email,
+              userId: user.id,
+              ip,
+              userAgent,
+              fingerprint,
+              status: "LOCKED",
+              reason: "TEMP_LOCKED",
+            },
+          });
+
+          throw new Error("ACCOUNT_LOCKED");
+        }
+
         if (!user.isVerified) {
+          await prisma.loginLog.create({
+            data: {
+              email,
+              userId: user.id,
+              ip,
+              userAgent,
+              fingerprint,
+              status: "FAILED",
+              reason: "NOT_VERIFIED",
+            },
+          });
+
           throw new Error("NOT_VERIFIED");
         }
 
-        /**
-         * 4. PASSWORD CHECK
-         */
         const validPassword = await bcrypt.compare(password, user.password);
 
         if (!validPassword) {
+          const attempts = (user.failedLoginAttempts || 0) + 1;
+          const lockAccount = attempts >= 5;
+
+          const lockUntil = lockAccount
+            ? new Date(Date.now() + 15 * 60 * 1000)
+            : null;
+
+          await prismaRetry(() =>
+            prisma.user.update({
+              where: { id: user.id },
+              data: {
+                failedLoginAttempts: attempts,
+                lastFailedLogin: new Date(),
+                lockUntil,
+              },
+            })
+          );
+
+          await prisma.loginLog.create({
+            data: {
+              email,
+              userId: user.id,
+              ip,
+              userAgent,
+              fingerprint,
+              status: lockAccount ? "LOCKED" : "FAILED",
+              reason: "WRONG_PASSWORD",
+            },
+          });
+
           throw new Error("WRONG_PASSWORD");
         }
 
-        /**
-         * 5. MFA VALIDATION (ONLY IF ENABLED)
-         */
+        // MFA Validation
         if (user.mfaEnabled) {
           if (!twoFactorCode) {
+            await prisma.loginLog.create({
+              data: {
+                email,
+                userId: user.id,
+                ip,
+                userAgent,
+                fingerprint,
+                status: "TWO_FA_REQUIRED",
+                reason: "MFA_REQUIRED",
+              },
+            });
+
             throw new Error("MFA_REQUIRED");
           }
 
@@ -92,46 +187,81 @@ export const authConfig: NextAuthOptions = {
             throw new Error("MFA_DECRYPT_FAILED");
           }
 
-          const isValid = speakeasy.totp.verify({
+          const verified = speakeasy.totp.verify({
             secret,
             encoding: "base32",
             token: twoFactorCode,
             window: 2,
           });
 
-          if (!isValid) {
+          if (!verified) {
+            await prisma.loginLog.create({
+              data: {
+                email,
+                userId: user.id,
+                ip,
+                userAgent,
+                fingerprint,
+                status: "FAILED",
+                reason: "INVALID_2FA",
+              },
+            });
+
             throw new Error("INVALID_2FA");
           }
         }
 
-        /**
-         * 6. ADMIN MFA ENFORCEMENT (SAFE LOGIC)
-         */
+        // Admin MFA enforcement (allow one login then force setup)
         const isAdmin = user.role === "ADMIN";
 
         if (isAdmin && !user.mfaEnabled && !user.mfaSetupRequired) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              mfaSetupRequired: true,
-            },
-          });
+          await prismaRetry(() =>
+            prisma.user.update({
+              where: { id: user.id },
+              data: { mfaSetupRequired: true },
+            })
+          );
         }
 
-        /**
-         * 7. DEVICE TRACKING (SAFE UPDATE)
-         */
-        await prisma.user.update({
-          where: { id: user.id },
+        // Successful login update
+        await prismaRetry(() =>
+          prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedLoginAttempts: 0,
+              lockUntil: null,
+              lastLoginFingerprint: fingerprint,
+              lastLoginIp: ip,
+              lastLoginAt: new Date(),
+            },
+          })
+        );
+
+        // User visible login history
+        await prisma.loginHistory.create({
           data: {
-            lastLoginFingerprint: fingerprint,
-            lastLoginAt: new Date(),
+            userId: user.id,
+            ip,
+            fingerprint,
+            userAgent,
+            device: userAgent,
+            success: true,
           },
         });
 
-        /**
-         * 8. SAFE RETURN OBJECT
-         */
+        // Security login log
+        await prisma.loginLog.create({
+          data: {
+            email,
+            userId: user.id,
+            ip,
+            userAgent,
+            fingerprint,
+            status: "SUCCESS",
+            reason: "LOGIN_SUCCESS",
+          },
+        });
+
         return {
           id: user.id,
           name: user.name,
@@ -148,7 +278,12 @@ export const authConfig: NextAuthOptions = {
   ],
 
   callbacks: {
-    async jwt({ token, user }) {
+    /**
+     * JWT Callback
+     * Handles login + realtime session update (trigger update)
+     */
+    async jwt({ token, user, trigger, session }) {
+      // first login
       if (user) {
         token.id = (user as any).id;
         token.name = (user as any).name;
@@ -159,9 +294,16 @@ export const authConfig: NextAuthOptions = {
         token.mfaSetupRequired = (user as any).mfaSetupRequired;
       }
 
-      /**
-       * SESSION VALIDATION (FAST PATH)
-       */
+      // 🔥 FIX: allow frontend update() to instantly update token
+      if (trigger === "update" && session) {
+        token.name = (session as any).name ?? token.name;
+        token.email = (session as any).email ?? token.email;
+        token.mfaEnabled = (session as any).mfaEnabled ?? token.mfaEnabled;
+        token.mfaSetupRequired =
+          (session as any).mfaSetupRequired ?? token.mfaSetupRequired;
+      }
+
+      // validate against DB (sessionVersion)
       if (token?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email as string },
@@ -173,7 +315,8 @@ export const authConfig: NextAuthOptions = {
         });
 
         if (!dbUser || dbUser.sessionVersion !== token.sessionVersion) {
-          return {} as any;
+          token.invalid = true;
+          return token;
         }
 
         token.mfaEnabled = dbUser.mfaEnabled;
@@ -183,7 +326,15 @@ export const authConfig: NextAuthOptions = {
       return token;
     },
 
+    /**
+     * Session Callback
+     * Exposes token -> frontend session
+     */
     async session({ session, token }) {
+      if (token.invalid) {
+        return null as any;
+      }
+
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).name = token.name;

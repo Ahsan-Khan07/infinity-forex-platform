@@ -2,268 +2,374 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import Card3D from "@/components/ui/Card3D";
+
+type MFASetupResponse = {
+  qr: string;
+  secret: string;
+  otpauthUrl: string;
+};
 
 export default function SecurityPage() {
-  const { data, update } = useSession();
-
+  const { data, update, status } = useSession();
   const user = data?.user as any;
 
+  // ================= STATE =================
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
-  const [password, setPassword] = useState("");
+  // 🔐 FIX: proper secure password fields
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   const [qr, setQr] = useState("");
+  const [secret, setSecret] = useState("");
   const [mfaCode, setMfaCode] = useState("");
 
   const [loading, setLoading] = useState(false);
+
+  // 🔐 request lock (prevents double submission)
+  const [submitting, setSubmitting] = useState(false);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // sync session user
+  // ================= SYNC SESSION =================
   useEffect(() => {
-    if (user) {
-      setName(user.name || "");
-      setEmail(user.email || "");
-    }
+    if (!user) return;
+
+    setName(user.name || "");
+    setEmail(user.email || "");
   }, [user]);
 
-  // =========================
+  const reset = () => {
+    setError("");
+    setMessage("");
+  };
+
+  // ======================================================
   // PROFILE UPDATE
-  // =========================
+  // ======================================================
   async function updateProfile() {
-    setLoading(true);
-    setError("");
-    setMessage("");
+    if (submitting) return;
+    setSubmitting(true);
+    reset();
 
-    const res = await fetch("/api/user/update-profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email }),
-    });
+    try {
+      const res = await fetch("/api/user/update-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email }),
+      });
 
-    const data = await res.json();
+      const json = await res.json();
 
-    setLoading(false);
+      if (!res.ok) {
+        setError(json.error || "PROFILE_UPDATE_FAILED");
+        return;
+      }
 
-    if (!res.ok) {
-      setError(data.error || "Failed to update profile");
-      return;
+      setMessage("Profile updated successfully");
+
+      await update({ name, email });
+    } catch {
+      setError("NETWORK_ERROR");
+    } finally {
+      setSubmitting(false);
     }
-
-    setMessage("Profile updated successfully");
-    update(); // refresh session
   }
 
-  // =========================
-  // PASSWORD CHANGE
-  // =========================
+  // ======================================================
+  // PASSWORD CHANGE (SECURE FIX)
+  // ======================================================
   async function changePassword() {
-    setLoading(true);
-    setError("");
-    setMessage("");
+    if (submitting) return;
+    setSubmitting(true);
+    reset();
 
-    const res = await fetch("/api/user/change-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
+    try {
+      const res = await fetch("/api/user/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
 
-    const data = await res.json();
+      const json = await res.json();
 
-    setLoading(false);
+      if (!res.ok) {
+        setError(json.error || "PASSWORD_CHANGE_FAILED");
+        return;
+      }
 
-    if (!res.ok) {
-      setError(data.error || "Failed to change password");
-      return;
+      setMessage("Password updated successfully");
+
+      setCurrentPassword("");
+      setNewPassword("");
+
+      await update();
+    } catch {
+      setError("NETWORK_ERROR");
+    } finally {
+      setSubmitting(false);
     }
-
-    setMessage("Password changed successfully");
-    setPassword("");
   }
 
-  // =========================
-  // MFA SETUP (GET QR)
-  // =========================
+  // ======================================================
+  // MFA SETUP
+  // ======================================================
   async function setupMFA() {
-    setLoading(true);
-    setError("");
-    setMessage("");
+    if (submitting) return;
+    setSubmitting(true);
+    reset();
 
-    const res = await fetch("/api/mfa/setup", {
-      method: "POST",
-    });
+    try {
+      const res = await fetch("/api/mfa/setup", {
+        method: "POST",
+      });
 
-    const data = await res.json();
+      const json: MFASetupResponse = await res.json();
 
-    setLoading(false);
+      if (!res.ok) {
+        setError("MFA_SETUP_FAILED");
+        return;
+      }
 
-    if (!res.ok) {
-      setError(data.error || "Failed to setup MFA");
-      return;
+      setQr(json.qr);
+      setSecret(json.secret);
+    } catch {
+      setError("NETWORK_ERROR");
+    } finally {
+      setSubmitting(false);
     }
-
-    setQr(data.qr);
   }
 
-  // =========================
+  // ======================================================
   // ENABLE MFA
-  // =========================
+  // ======================================================
   async function enableMFA() {
-    setLoading(true);
-    setError("");
-    setMessage("");
+    if (submitting) return;
+    setSubmitting(true);
+    reset();
 
-    const res = await fetch("/api/mfa/enable", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: mfaCode }),
-    });
+    try {
+      const res = await fetch("/api/mfa/enable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: mfaCode }),
+      });
 
-    const data = await res.json();
+      const json = await res.json();
 
-    setLoading(false);
+      if (!res.ok) {
+        setError(json.error || "INVALID_MFA_CODE");
+        return;
+      }
 
-    if (!res.ok) {
-      setError(data.error || "Invalid MFA code");
-      return;
+      setMessage("MFA enabled successfully");
+
+      setQr("");
+      setSecret("");
+      setMfaCode("");
+
+      await update({
+        mfaEnabled: true,
+        mfaSetupRequired: false,
+      });
+    } catch {
+      setError("NETWORK_ERROR");
+    } finally {
+      setSubmitting(false);
     }
-
-    setMessage("MFA enabled successfully");
-    setQr("");
-    setMfaCode("");
-    update();
   }
 
-  return (
-    <div className="max-w-3xl mx-auto p-6 text-white space-y-8">
+  // ======================================================
+  // DISABLE MFA
+  // ======================================================
+  async function disableMFA() {
+    if (submitting) return;
+    setSubmitting(true);
+    reset();
 
-      {/* HEADER */}
-      <div>
-        <h1 className="text-xl font-bold">Security Settings</h1>
+    try {
+      const res = await fetch("/api/mfa/disable", {
+        method: "POST",
+      });
 
-        {error && (
-          <p className="text-red-400 text-sm mt-2">{error}</p>
-        )}
+      const json = await res.json();
 
-        {message && (
-          <p className="text-green-400 text-sm mt-2">{message}</p>
-        )}
+      if (!res.ok) {
+        setError(json.error || "MFA_DISABLE_FAILED");
+        return;
+      }
+
+      setMessage("MFA disabled successfully");
+
+      setQr("");
+      setSecret("");
+      setMfaCode("");
+
+      await update({
+        mfaEnabled: false,
+        mfaSetupRequired: false,
+      });
+    } catch {
+      setError("NETWORK_ERROR");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // ================= LOADING =================
+  if (status === "loading") {
+    return (
+      <div className="max-w-4xl mx-auto p-6 text-white">
+        <Card3D>
+          <div className="text-white/60">Loading security center...</div>
+        </Card3D>
       </div>
+    );
+  }
+
+  // ================= UI =================
+  return (
+    <div className="max-w-4xl mx-auto p-6 text-white space-y-6">
+
+      <Card3D>
+        <h1 className="text-2xl font-semibold">Security Center</h1>
+        <p className="text-sm text-white/50 mt-1">
+          Manage authentication and account security.
+        </p>
+      </Card3D>
+
+      {error && (
+        <Card3D>
+          <p className="text-red-300 text-sm">{error}</p>
+        </Card3D>
+      )}
+
+      {message && (
+        <Card3D>
+          <p className="text-green-300 text-sm">{message}</p>
+        </Card3D>
+      )}
 
       {/* PROFILE */}
-      <div className="space-y-3 p-4 border border-white/10 rounded-xl">
-        <h2 className="font-semibold">Profile</h2>
+      <Card3D>
+        <h2 className="font-semibold mb-3">Profile</h2>
 
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full p-3 bg-black/40 border border-white/10"
+          className="w-full p-3 bg-black/40 border border-white/10 rounded-lg"
           placeholder="Name"
         />
 
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 bg-black/40 border border-white/10"
+          className="w-full p-3 mt-2 bg-black/40 border border-white/10 rounded-lg"
           placeholder="Email"
         />
 
         <button
           onClick={updateProfile}
-          disabled={loading}
-          className="btn-3d w-full"
+          disabled={submitting}
+          className="w-full mt-3 py-2 rounded-lg bg-cyan-500/20 border border-cyan-500/30 disabled:opacity-50"
         >
           Update Profile
         </button>
-      </div>
+      </Card3D>
 
       {/* PASSWORD */}
-      <div className="space-y-3 p-4 border border-white/10 rounded-xl">
-        <h2 className="font-semibold">Password</h2>
+      <Card3D>
+        <h2 className="font-semibold mb-3">Password Security</h2>
 
         <input
           type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 bg-black/40 border border-white/10"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          placeholder="Current Password"
+          className="w-full p-3 bg-black/40 border border-white/10 rounded-lg"
+        />
+
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
           placeholder="New Password"
+          className="w-full mt-2 p-3 bg-black/40 border border-white/10 rounded-lg"
         />
 
         <button
           onClick={changePassword}
-          disabled={loading}
-          className="btn-3d w-full"
+          disabled={submitting}
+          className="w-full mt-3 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30 disabled:opacity-50"
         >
           Change Password
         </button>
-      </div>
+      </Card3D>
 
-      {/* MFA SECTION */}
-      <div className="space-y-3 p-4 border border-white/10 rounded-xl">
-        <h2 className="font-semibold">Multi-Factor Authentication (MFA)</h2>
+      {/* MFA */}
+      <Card3D>
+        <h2 className="font-semibold mb-3">MFA Security</h2>
 
-        <p className="text-sm text-white/70">
-          Status:{" "}
+        <div className="flex justify-between text-sm mb-3">
+          <span>Status</span>
           <span className={user?.mfaEnabled ? "text-green-400" : "text-red-400"}>
             {user?.mfaEnabled ? "Enabled" : "Disabled"}
           </span>
-        </p>
+        </div>
 
-        {!user?.mfaEnabled && (
-          <button
-            onClick={setupMFA}
-            className="text-cyan-400 hover:text-cyan-300 text-sm"
-          >
-            Enable MFA (Google Authenticator)
-          </button>
-        )}
+        <div className="flex gap-3">
+          {!user?.mfaEnabled && (
+            <button
+              onClick={setupMFA}
+              disabled={submitting}
+              className="flex-1 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-lg disabled:opacity-50"
+            >
+              Enable MFA
+            </button>
+          )}
 
-        {/* QR DISPLAY */}
+          {user?.mfaEnabled && (
+            <button
+              onClick={disableMFA}
+              disabled={submitting}
+              className="flex-1 py-2 bg-red-500/20 border border-red-500/30 rounded-lg disabled:opacity-50"
+            >
+              Disable MFA
+            </button>
+          )}
+        </div>
+
         {qr && (
-          <div className="mt-4 space-y-3">
-            <p className="text-sm text-white/70">
-              Scan this QR with Google Authenticator
-            </p>
+          <div className="space-y-4 pt-4 border-t border-white/10">
+            <img src={qr} className="w-40 h-40 mx-auto" />
 
-            <img src={qr} className="w-40 h-40" />
+            <div className="text-xs text-green-300 break-all font-mono">
+              {secret}
+            </div>
 
             <input
               value={mfaCode}
               onChange={(e) => setMfaCode(e.target.value)}
-              className="w-full p-3 bg-black/40 border border-white/10"
-              placeholder="Enter 6-digit code"
+              className="w-full p-3 bg-black/40 border border-white/10 rounded-lg"
+              placeholder="6-digit code"
             />
 
             <button
               onClick={enableMFA}
-              className="btn-3d w-full"
+              disabled={submitting}
+              className="w-full py-2 bg-green-500/20 border border-green-500/30 rounded-lg disabled:opacity-50"
             >
               Confirm MFA
             </button>
           </div>
         )}
-      </div>
-
-      {/* ADMIN PANEL */}
-      {user?.role === "ADMIN" && (
-        <div className="p-4 border border-red-500/30 rounded-xl">
-          <p className="text-red-400 font-semibold">
-            Admin Security Panel
-          </p>
-
-          <p className="text-xs text-white/60 mt-2">
-            MFA is mandatory for admin accounts. First login requires setup.
-          </p>
-
-          {!user?.mfaEnabled && (
-            <p className="text-yellow-400 text-xs mt-2">
-              ⚠ Admin account must enable MFA immediately
-            </p>
-          )}
-        </div>
-      )}
-
+      </Card3D>
     </div>
   );
 }

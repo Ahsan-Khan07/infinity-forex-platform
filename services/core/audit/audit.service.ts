@@ -1,33 +1,45 @@
-/**
- * AUDIT SERVICE (ENTERPRISE LOGGING LAYER)
- * ----------------------------------------
- * Centralized security & activity logging system.
- *
- * Used for:
- * - login tracking
- * - security events
- * - fraud detection signals
- * - admin audit trails
- */
-
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
+/**
+ * AUDIT ACTION TYPES (FINTECH EVENT MODEL)
+ */
 export type AuditAction =
   | "LOGIN_SUCCESS"
   | "LOGIN_FAILED"
   | "DEVICE_VERIFIED"
   | "NEW_DEVICE_DETECTED"
   | "PASSWORD_CHANGED"
-  | "EMAIL_CHANGED";
+  | "EMAIL_CHANGED"
+  | "MFA_ENABLED"
+  | "MFA_DISABLED"
+  | "MFA_SETUP_STARTED"
+  | "PROFILE_UPDATED"
+  | "LOGOUT";
 
+/**
+ * AUDIT INPUT CONTRACT
+ */
 interface AuditLogInput {
   userId?: string;
   action: AuditAction;
-  ip?: string;
-  userAgent?: string;
-  metadata?: Record<string, any>;
+  ip?: string | null;
+  userAgent?: string | null;
+
+  /**
+   * Prisma-safe JSON payload
+   */
+  metadata?: Prisma.InputJsonValue;
 }
 
+/**
+ * FINTECH-GRADE AUDIT SERVICE
+ * ---------------------------
+ * - Never breaks auth flow
+ * - Always Prisma JSON safe
+ * - Structured event logging
+ * - Defensive fallback handling
+ */
 export async function auditLog({
   userId,
   action,
@@ -36,17 +48,27 @@ export async function auditLog({
   metadata,
 }: AuditLogInput) {
   try {
-    return await prisma.auditLog.create({
+    await prisma.auditLog.create({
       data: {
         userId: userId ?? null,
         action,
+
         ip: ip ?? null,
         userAgent: userAgent ?? null,
-        metadata: metadata ? JSON.stringify(metadata) : null,
+
+        /**
+         * FIXED:
+         * Prisma expects JSON object, NOT string
+         * Always fallback to empty object
+         */
+        metadata: metadata ?? {},
       },
     });
   } catch (error) {
-    // Never break auth flow due to logging failure
+    /**
+     * CRITICAL:
+     * Audit failures must NEVER block business logic
+     */
     console.error("AUDIT_LOG_ERROR:", error);
   }
 }

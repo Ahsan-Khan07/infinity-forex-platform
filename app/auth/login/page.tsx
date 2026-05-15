@@ -3,14 +3,28 @@
 import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import AuthCard from "@/components/AuthCard";
-import { useRouter } from "next/navigation";
+
+function generateFingerprint() {
+  if (typeof window === "undefined") return "server";
+
+  return btoa(
+    navigator.userAgent +
+      "|" +
+      navigator.language +
+      "|" +
+      window.screen.width +
+      "x" +
+      window.screen.height +
+      "|" +
+      Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
+}
 
 export default function LoginPage() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fingerprint, setFingerprint] = useState("");
+  const [fingerprint, setFingerprint] = useState<string>("");
+
   const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -20,26 +34,15 @@ export default function LoginPage() {
   const [resendLoading, setResendLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // ✅ SIMPLE FINGERPRINT GENERATION (NO LIBRARY)
+  // ================= SAFE CLIENT FINGERPRINT =================
   useEffect(() => {
-    const fp =
-      navigator.userAgent +
-      "|" +
-      navigator.language +
-      "|" +
-      screen.width +
-      "x" +
-      screen.height +
-      "|" +
-      Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    setFingerprint(btoa(fp));
+    setFingerprint(generateFingerprint());
   }, []);
 
+  // ================= LOGIN =================
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
 
-    // ❌ prevent double click / spam login
     if (loading) return;
 
     setLoading(true);
@@ -49,31 +52,26 @@ export default function LoginPage() {
     try {
       if (!email || !password) {
         setError("Email and password are required");
-        setLoading(false);
         return;
       }
-
-      // ⚠️ ensure fingerprint exists before sending request
-      const fp = fingerprint || "unknown-device";
 
       const res = await signIn("credentials", {
         redirect: false,
         email,
         password,
-        fingerprint: fp,
+        fingerprint: fingerprint || "unknown-device",
         twoFactorCode,
       });
 
       if (!res) {
         setError("Server error. Please try again");
-        setLoading(false);
         return;
       }
 
       if (res.error) {
         switch (res.error) {
           case "USER_NOT_FOUND":
-            setError("This email is not registered. Please sign up first.");
+            setError("This email is not registered.");
             break;
 
           case "NOT_VERIFIED":
@@ -81,41 +79,37 @@ export default function LoginPage() {
             break;
 
           case "WRONG_PASSWORD":
-            setError("Incorrect password. Please try again.");
+            setError("Incorrect password.");
             break;
 
           case "INVALID_2FA":
-            setError("Invalid 2FA code. Please try again.");
+            setError("Invalid 2FA code.");
             break;
 
           case "ACCOUNT_LOCKED":
-            setError("Account temporarily locked due to failed attempts.");
+            setError("Account temporarily locked.");
             break;
 
           case "NEW_DEVICE_DETECTED":
-            setError(
-              "New device detected. Please verify login from your email."
-            );
+            setError("New device detected. Verify login via email.");
             break;
 
           default:
-            setError("Login failed. Please check your credentials.");
+            setError("Login failed.");
         }
 
-        setLoading(false);
         return;
       }
 
-      // ✅ SUCCESS
       window.location.href = "/dashboard";
-
-    } catch (err: any) {
-      setError(err?.message || "Something went wrong");
+    } catch {
+      setError("Something went wrong");
     } finally {
       setLoading(false);
     }
   }
 
+  // ================= GOOGLE LOGIN =================
   async function handleGoogleLogin() {
     if (googleLoading) return;
 
@@ -134,6 +128,7 @@ export default function LoginPage() {
     }
   }
 
+  // ================= RESEND EMAIL =================
   async function handleResend() {
     if (!email || resendLoading) return;
 
@@ -183,6 +178,7 @@ export default function LoginPage() {
           </div>
         )}
 
+        {/* GOOGLE LOGIN */}
         <button
           type="button"
           onClick={handleGoogleLogin}
@@ -202,6 +198,7 @@ export default function LoginPage() {
           <div className="flex-1 h-px bg-white/10" />
         </div>
 
+        {/* EMAIL */}
         <input
           placeholder="Email"
           className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white"
@@ -209,6 +206,7 @@ export default function LoginPage() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
+        {/* PASSWORD */}
         <input
           placeholder="Password"
           type="password"
@@ -217,7 +215,7 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        {/* 🔐 2FA INPUT (STEP 4.5) */}
+        {/* 2FA */}
         <input
           placeholder="2FA Code (if enabled)"
           className="w-full p-3 rounded-xl bg-black/40 border border-white/10 text-white"
@@ -225,7 +223,7 @@ export default function LoginPage() {
           onChange={(e) => setTwoFactorCode(e.target.value)}
         />
 
-        <div className="flex justify-end mt-1">
+        <div className="flex justify-end">
           <a
             href="/auth/forgot-password"
             className="text-sm text-cyan-400 hover:text-cyan-300"
@@ -234,6 +232,7 @@ export default function LoginPage() {
           </a>
         </div>
 
+        {/* LOGIN BUTTON */}
         <button
           disabled={disabled}
           className={`w-full py-3 rounded-xl font-semibold transition ${
@@ -245,13 +244,16 @@ export default function LoginPage() {
           {loading ? "Logging in..." : "Login"}
         </button>
 
+        {/* RESEND EMAIL */}
         <button
           type="button"
           onClick={handleResend}
           disabled={!email || resendLoading}
           className="w-full text-sm text-cyan-400 hover:text-cyan-300 mt-2"
         >
-          {resendLoading ? "Sending..." : "Didn’t receive verification email? Resend"}
+          {resendLoading
+            ? "Sending..."
+            : "Didn’t receive verification email? Resend"}
         </button>
 
       </form>

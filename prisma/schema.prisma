@@ -194,7 +194,7 @@ model AuditLog {
   ip        String?
   userAgent String?
 
-  metadata String?
+  metadata Json
 
   createdAt DateTime @default(now())
 
@@ -246,4 +246,11 @@ model LoginHistory {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model PasswordHistory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  hash      String
+  createdAt DateTime @default(now())
 }
